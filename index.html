@@ -1,0 +1,1551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lift Traffic Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-matrix@2"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            background: #000000;
+            min-height: 100vh;
+            color: white;
+            font-weight: 400;
+            line-height: 1.5;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background:
+                radial-gradient(circle at 20% 80%, rgba(0, 255, 255, 0.14) 0%, rgba(0, 255, 255, 0.08) 12%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(0, 255, 127, 0.14) 0%, rgba(0, 255, 127, 0.08) 12%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+            filter: blur(2px);
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background:
+                repeating-linear-gradient(0deg, rgba(0, 255, 255, 0.06), rgba(0, 255, 255, 0.06) 1px, transparent 1px, transparent 100px),
+                repeating-linear-gradient(90deg, rgba(0, 255, 127, 0.05), rgba(0, 255, 127, 0.05) 1px, transparent 1px, transparent 100px);
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0.25;
+            mix-blend-mode: screen;
+        }
+
+        .container {
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .header-logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .logo-img {
+            max-height: 80px;
+            width: auto;
+            border-radius: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .logo-inline {
+            height: 56px;
+            width: auto;
+            border-radius: 16px;
+            vertical-align: middle;
+            margin-right: 0.6rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        .header h1 {
+            font-size: 2.8rem;
+            margin-bottom: 0.5rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            font-weight: 400;
+            letter-spacing: 0.01em;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .stat-card {
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(20px);
+            border-radius: 16px;
+            padding: 2rem;
+            text-align: center;
+            border: 1px solid rgba(0, 255, 200, 0.25);
+            transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+            box-shadow: 0 8px 30px rgba(0, 255, 200, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-number {
+            font-size: 2.4rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(45deg, #22c55e, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.02em;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            font-weight: 500;
+            letter-spacing: 0.01em;
+        }
+
+        .stat-sublabel {
+            font-size: 0.8rem;
+            opacity: 0.7;
+            font-weight: 400;
+            margin-top: 0.25rem;
+            letter-spacing: 0.01em;
+        }
+
+        .chart-container {
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(20px);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            border: 1px solid rgba(0, 255, 200, 0.25);
+            box-shadow: 0 10px 40px rgba(0, 255, 200, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+        }
+
+        .chart-title {
+            font-size: 1.4rem;
+            margin-bottom: 1rem;
+            text-align: center;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .day-toggles {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .day-btn {
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: 1px solid rgba(0, 255, 200, 0.25);
+            padding: 0.6rem 1rem;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .day-btn:hover {
+            border-color: rgba(0, 255, 200, 0.5);
+            background: rgba(0, 255, 200, 0.1);
+        }
+
+        .day-btn.active {
+            background: linear-gradient(45deg, #4ecdc4, #44a08d);
+            border-color: #4ecdc4;
+        }
+
+        .export-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+
+        .export-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 2rem;
+            border-radius: 16px;
+            border: 1px solid rgba(0, 255, 200, 0.25);
+            min-width: 300px;
+        }
+
+        .export-title {
+            font-size: 1.4rem;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        .export-options {
+            display: grid;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .export-btn {
+            background: linear-gradient(45deg, #22c55e, #3b82f6);
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .close-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            cursor: pointer;
+            float: right;
+        }
+
+        .control-btn {
+            background: linear-gradient(45deg, #22c55e, #3b82f6);
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.95rem;
+            letter-spacing: 0.01em;
+            transition: all 0.3s ease;
+        }
+
+        .control-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .control-btn.active {
+            background: linear-gradient(45deg, #22c55e, #3b82f6);
+        }
+
+        .control-select {
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: 1px solid rgba(0, 255, 200, 0.25);
+            padding: 0.6rem 1rem;
+            border-radius: 25px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            letter-spacing: 0.01em;
+        }
+
+        .control-select:disabled {
+            opacity: 0.5;
+        }
+
+        .time-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .time-slot {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 1rem;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 0.9rem;
+            border: 1px solid rgba(0, 255, 200, 0.2);
+        }
+
+        /* Insights formatting */
+        #peaksTroughs .time-slot { text-align: left; }
+        #peaksList, #troughsList { list-style: none; padding-left: 0; margin-top: 0.75rem; }
+        #peaksList li, #troughsList li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(0, 255, 200, 0.2);
+            border-radius: 8px;
+            padding: 0.6rem 0.8rem;
+            margin-bottom: 0.5rem;
+        }
+        .insight-time { color: #b8fff3; font-weight: 600; }
+        .insight-value {
+            font-weight: 700;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Make the weekly donut smaller and centered */
+        #dailyShareContainer { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+        #dailyShareContainer canvas {
+            max-height: 312px; /* +20% */
+            width: 100% !important;
+            max-width: 624px; /* +20% */
+            margin: 0 auto;
+            display: block;
+        }
+
+        .loading {
+            text-align: center;
+            font-size: 1.2rem;
+            margin: 2rem 0;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .loading {
+            animation: pulse 2s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><img src="logo.png" alt="Logo" class="logo-inline">ITPL Elevator Analytics</h1>
+            <p id="dateRange">Weekly Lift Traffic Overview · 04.08.2025 - 10.08.2025</p>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number" id="totalPeople">0</div>
+                <div class="stat-label">Total People</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="peakHour">--:--</div>
+                <div class="stat-label">Peak Hour</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="avgPerHour">0</div>
+                <div class="stat-label">Avg/Hour</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="activeVideos">0</div>
+                <div class="stat-label">Unique Videos</div>
+                 <div class="stat-sublabel" id="totalHours">0 hrs</div>
+            </div>
+        </div>
+
+        <div class="day-toggles">
+            <button class="day-btn active" onclick="selectDay('week')">Week View</button>
+            <button class="day-btn" onclick="selectDay('04_08_2025')">04.08.2025</button>
+            <button class="day-btn" onclick="selectDay('05_08_2025')">05.08.2025</button>
+            <button class="day-btn" onclick="selectDay('06_08_2025')">06.08.2025</button>
+            <button class="day-btn" onclick="selectDay('07_08_2025')">07.08.2025</button>
+            <button class="day-btn" onclick="selectDay('08_08_2025')">08.08.2025</button>
+            <button class="day-btn" onclick="selectDay('09_08_2025')">09.08.2025</button>
+            <button class="day-btn" onclick="selectDay('10_08_2025')">10.08.2025</button>
+        </div>
+
+        <div class="controls">
+            <button id="hourlyBtn" class="control-btn active" onclick="showHourly()">Hourly View</button>
+            <button id="detailedBtn" class="control-btn" onclick="showDetailed()">Detailed</button>
+            <button id="dailyTotalsBtn" class="control-btn" onclick="showDailyTotals()" style="display: none;">Daily Totals</button>
+            <button id="exportBtn" class="control-btn" onclick="showExportModal()">Export Data</button>
+        </div>
+
+        <div class="chart-container">
+            <h3 class="chart-title">People Count Distribution</h3>
+            <canvas id="trafficChart"></canvas>
+        </div>
+
+        <div class="chart-container">
+            <h3 class="chart-title">Cumulative Traffic</h3>
+            <canvas id="cumulativeChart"></canvas>
+        </div>
+
+        <div class="chart-container">
+            <h3 class="chart-title">Hourly Heatmap by Day</h3>
+            <div style="height: 180px; position: relative;">
+                <canvas id="heatmapChart"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-container" id="dailyShareContainer">
+            <h3 class="chart-title">Daily Share of Week</h3>
+            <canvas id="dailyShareChart"></canvas>
+        </div>
+
+        <div class="chart-container">
+            <h3 class="chart-title">Insights</h3>
+            <div class="time-info" id="peaksTroughs">
+                <div class="time-slot">
+                    <strong>Top 3 Peak Hours</strong>
+                    <ul id="peaksList"></ul>
+                </div>
+                <div class="time-slot">
+                    <strong>Top 3 Quiet Hours</strong>
+                    <ul id="troughsList"></ul>
+                </div>
+            </div>
+            <div class="time-info" id="seasonalityTiles"></div>
+        </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div id="exportModal" class="export-modal">
+        <div class="export-content">
+            <h3 class="export-title">Export Data</h3>
+            <div class="export-options">
+                <button class="export-btn" onclick="exportDay('week')">Export Complete Week</button>
+                <button class="export-btn" onclick="exportDay('04_08_2025')">Export 04.08.2025</button>
+                <button class="export-btn" onclick="exportDay('05_08_2025')">Export 05.08.2025</button>
+                <button class="export-btn" onclick="exportDay('06_08_2025')">Export 06.08.2025</button>
+                <button class="export-btn" onclick="exportDay('07_08_2025')">Export 07.08.2025</button>
+                <button class="export-btn" onclick="exportDay('08_08_2025')">Export 08.08.2025</button>
+                <button class="export-btn" onclick="exportDay('09_08_2025')">Export 09.08.2025</button>
+                <button class="export-btn" onclick="exportDay('10_08_2025')">Export 10.08.2025</button>
+            </div>
+            <button class="close-btn" onclick="closeExportModal()">Close</button>
+        </div>
+    </div>
+
+    <script>
+        let csvData = [];
+        let weeklyData = {};
+        let rawCsvData = {}; // Store raw CSV data for detailed view
+        let trafficChart, cumulativeChart, heatmapChart, dailyShareChart;
+        let currentView = 'hourly';
+        let currentDay = 'week';
+        let uniqueVideoCount = 0;
+
+        const dayNames = {
+            '04_08_2025': 'Sunday',
+            '05_08_2025': 'Monday',
+            '06_08_2025': 'Tuesday',
+            '07_08_2025': 'Wednesday',
+            '08_08_2025': 'Thursday',
+            '09_08_2025': 'Friday',
+            '10_08_2025': 'Saturday'
+        };
+
+        const dayDates = {
+            '04_08_2025': '04.08.2025',
+            '05_08_2025': '05.08.2025',
+            '06_08_2025': '06.08.2025',
+            '07_08_2025': '07.08.2025',
+            '08_08_2025': '08.08.2025',
+            '09_08_2025': '09.08.2025',
+            '10_08_2025': '10.08.2025'
+        };
+
+        async function loadData() {
+            try {
+                // Load all daily files
+                const days = ['04_08_2025', '05_08_2025', '06_08_2025', '07_08_2025', '08_08_2025', '09_08_2025', '10_08_2025'];
+
+                for (const day of days) {
+                    try {
+                        const response = await fetch(`${day}.csv`);
+                        const csvText = await response.text();
+                        rawCsvData[day] = csvText; // Store raw CSV for detailed view
+                        weeklyData[day] = parseCSVData(csvText, day);
+                } catch (e) {
+                        console.log(`Could not load ${day}.csv:`, e);
+                    }
+                }
+
+                // Weekly data is sourced from the generated per-day CSVs above.
+
+                selectDay('week'); // Start with week view
+            } catch (error) {
+                console.error('Error loading data:', error);
+                generateSampleData();
+                initializeCharts();
+                updateStats();
+            }
+        }
+
+        function parseCSVData(csvText, day) {
+            const lines = csvText.split('\n').slice(1);
+            const hourlyData = new Array(24).fill(0).map((_, i) => ({
+                hour: i,
+                hour_range: `${String(i).padStart(2, '0')}:00 - ${String(i+1).padStart(2, '0')}:00`,
+                hourly_count: 0,
+                cumulative_hourly_count: 0
+            }));
+
+            const videoNames = new Set();
+            let finalCumulativeSum = 0;
+            // Track unique video durations to avoid double-counting across multiple split rows
+            const videoDurationMap = new Map();
+
+            lines.filter(line => line.trim()).forEach(line => {
+                const parts = line.split(',');
+                const videoname = parts[0];
+                const processed_sum = parseInt(parts[7]) || 0;
+                const cumulative_sum = parseInt(parts[8]) || 0; // Note: CSV has 'cumilative_sum' (typo)
+                const split = parseInt(parts[5]) || 0;
+                let duration_minutes = Number(parts[3]);
+                if (!isFinite(duration_minutes)) duration_minutes = 0;
+                // Fallback: derive duration from start/end if needed
+                if (duration_minutes <= 0) {
+                    const startHms = parts[1];
+                    const endHms = parts[2];
+                    const toSec = (hms) => {
+                        const [h, m, s] = hms.split(':').map(Number);
+                        return (h * 3600) + (m * 60) + s;
+                    };
+                    const s1 = toSec(startHms);
+                    const s2 = toSec(endHms);
+                    let diff = s2 - s1;
+                    if (diff < 0) diff += 24 * 3600; // handle wrap across midnight
+                    duration_minutes = diff / 60;
+                }
+
+                if (videoname) videoNames.add(videoname);
+
+                // Update final cumulative sum to the last (highest) value we see
+                finalCumulativeSum = cumulative_sum;
+                // Record max duration per unique video name
+                if (videoname) {
+                    const prev = videoDurationMap.get(videoname) || 0;
+                    if (duration_minutes > prev) {
+                        videoDurationMap.set(videoname, duration_minutes);
+                    }
+                }
+
+                // Map split to hour (assuming 48 splits for 24 hours)
+                const hour = Math.floor(split / 2);
+                if (hour >= 0 && hour < 24) {
+                    hourlyData[hour].hourly_count += processed_sum;
+                }
+            });
+
+            // Sum unique video durations (minutes)
+            let totalDurationMinutes = 0;
+            videoDurationMap.forEach(v => totalDurationMinutes += v);
+
+            // Calculate cumulative for hourly data
+            let cumulativeSum = 0;
+            hourlyData.forEach((item, index) => {
+                cumulativeSum += item.hourly_count;
+                item.cumulative_hourly_count = cumulativeSum;
+            });
+
+            return {
+                hourlyData,
+                uniqueVideoCount: videoNames.size,
+                totalPeople: finalCumulativeSum,  // Use the actual final cumulative sum from CSV
+                totalHours: (totalDurationMinutes / 60)
+            };
+        }
+
+        function generateSampleData() {
+            // Generate sample weekly data if files are not available
+            const days = ['04_08_2025', '05_08_2025', '06_08_2025', '07_08_2025', '08_08_2025', '09_08_2025', '10_08_2025'];
+
+            days.forEach(day => {
+                const hourlyData = new Array(24).fill(0).map((_, i) => {
+                let peopleCount;
+                    if (i >= 8 && i <= 10) { // 8:00-10:00 AM peak
+                        peopleCount = Math.floor(Math.random() * 200) + 150;
+                    } else if (i >= 12 && i <= 14) { // 12:00-2:00 PM lunch peak
+                        peopleCount = Math.floor(Math.random() * 180) + 120;
+                    } else if (i >= 17 && i <= 19) { // 5:00-7:00 PM evening peak
+                        peopleCount = Math.floor(Math.random() * 250) + 200;
+                    } else if (i >= 0 && i <= 5) { // Night hours - low traffic
+                        peopleCount = Math.floor(Math.random() * 20) + 5;
+                } else {
+                        peopleCount = Math.floor(Math.random() * 100) + 50;
+                    }
+
+                    return {
+                        hour: i,
+                        hour_range: `${String(i).padStart(2, '0')}:00 - ${String(i+1).padStart(2, '0')}:00`,
+                        hourly_count: peopleCount,
+                        cumulative_hourly_count: 0
+                    };
+                });
+
+                let cumulative = 0;
+                hourlyData.forEach(item => {
+                    cumulative += item.hourly_count;
+                    item.cumulative_hourly_count = cumulative;
+                });
+
+                weeklyData[day] = {
+                    hourlyData,
+                    uniqueVideoCount: Math.floor(Math.random() * 50) + 80,
+                    totalPeople: cumulative
+                };
+            });
+        }
+
+        function extractThirtyMinuteData(day) {
+            if (!rawCsvData[day]) return [];
+            
+            const lines = rawCsvData[day].split('\n').slice(1);
+            const thirtyMinData = new Array(48).fill(0).map((_, i) => {
+                const hour = Math.floor(i / 2);
+                const isSecondHalf = i % 2 === 1;
+                const startMinute = isSecondHalf ? 30 : 0;
+                const endMinute = isSecondHalf ? 0 : 30;
+                const endHour = isSecondHalf ? (hour + 1) % 24 : hour;
+                
+                return {
+                    split: i,
+                    hour: hour,
+                    label: `${String(hour).padStart(2, '0')}:${String(startMinute).padStart(2, '0')} - ${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}`,
+                    count: 0
+                };
+            });
+            
+            // Process CSV lines to get actual split counts
+            lines.filter(line => line.trim()).forEach(line => {
+                const parts = line.split(',');
+                const processed_sum = parseInt(parts[7]) || 0;
+                const split = parseInt(parts[5]) || 0;
+                
+                if (split >= 0 && split < 48) {
+                    thirtyMinData[split].count += processed_sum;
+                }
+            });
+            
+            return thirtyMinData;
+        }
+
+        function getColorGradient(index, total) {
+            const colors = [
+                '#22c55e', '#3b82f6', '#f97316', '#ef4444', '#8b5cf6',
+                '#06b6d4', '#84cc16', '#f59e0b', '#ec4899', '#10b981',
+                '#6366f1', '#f43f5e', '#14b8a6', '#a855f7', '#06b6d4'
+            ];
+            return colors[index % colors.length];
+        }
+
+        function getWeeklyHourlyAverages() {
+            const sums = new Array(24).fill(0);
+            let days = 0;
+            Object.values(weeklyData).forEach(d => {
+                if (d && d.hourlyData) {
+                    d.hourlyData.forEach((h, i) => sums[i] += h.hourly_count);
+                    days += 1;
+                }
+            });
+            if (days === 0) return new Array(24).fill(0);
+            return sums.map(v => Math.round(v / days));
+        }
+
+        function createOverlayDataset(labelsLength) {
+            // Disable overlay line as it doesn't provide meaningful insights
+            // when individual days vary significantly from the average
+            return null;
+        }
+
+        function getHourlyForCurrent() {
+            const result = new Array(24).fill(0);
+            if (currentDay === 'week') {
+                Object.values(weeklyData).forEach(d => {
+                    if (d && d.hourlyData) {
+                        d.hourlyData.forEach((h, i) => result[i] += h.hourly_count);
+                    }
+                });
+            } else {
+                const d = weeklyData[currentDay];
+                if (d && d.hourlyData) {
+                    d.hourlyData.forEach((h, i) => result[i] = h.hourly_count);
+                }
+            }
+            return result;
+        }
+
+        function getWeeklyThirtyMinAverages() {
+            // Build 48-slot average across the week from rawCsvData
+            const totals = new Array(48).fill(0);
+            let dayCount = 0;
+            const days = ['04_08_2025','05_08_2025','06_08_2025','07_08_2025','08_08_2025','09_08_2025','10_08_2025'];
+            days.forEach(day => {
+                const lines = (rawCsvData[day] || '').split('\n').slice(1).filter(l => l.trim());
+                if (lines.length === 0) return;
+                dayCount += 1;
+                lines.forEach(line => {
+                    const parts = line.split(',');
+                    const split = parseInt(parts[5]) || 0;
+                    const processed_sum = parseInt(parts[7]) || 0;
+                    if (split >= 0 && split < 48) totals[split] += processed_sum;
+                });
+            });
+            if (dayCount === 0) return null;
+            return totals.map(v => Math.round(v / dayCount));
+        }
+
+        function initializeHeatmap() {
+            const days = ['04_08_2025','05_08_2025','06_08_2025','07_08_2025','08_08_2025','09_08_2025','10_08_2025'];
+            const labelsY = days.map(d => dayDates[d]);
+            const data = [];
+            for (let y = 0; y < days.length; y++) {
+                const d = weeklyData[days[y]];
+                for (let x = 0; x < 24; x++) {
+                    const v = d && d.hourlyData ? d.hourlyData[x].hourly_count : 0;
+                    data.push({ x, y: labelsY[y], v });
+                }
+            }
+
+            // Compute quantile-based thresholds (GitHub-like bucketing)
+            const values = data.map(p => p.v).filter(v => v > 0);
+            const maxVal = values.length ? Math.max(...values) : 0;
+            function quantile(arr, q) {
+                if (!arr.length) return 0;
+                const sorted = arr.slice().sort((a,b)=>a-b);
+                const pos = (sorted.length - 1) * q;
+                const base = Math.floor(pos);
+                const rest = pos - base;
+                return sorted[base + 1] !== undefined ? sorted[base] + rest * (sorted[base+1]-sorted[base]) : sorted[base];
+            }
+            const t1 = quantile(values, 0.20) || (maxVal * 0.2);
+            const t2 = quantile(values, 0.40) || (maxVal * 0.4);
+            const t3 = quantile(values, 0.60) || (maxVal * 0.6);
+            const t4 = quantile(values, 0.80) || (maxVal * 0.8);
+
+            function bucketColor(v) {
+                if (v <= 0) return 'rgba(22, 163, 74, 0.3)';     // green for 0 counts with lower opacity
+                if (v <= t1) return 'rgba(22, 163, 74, 0.6)';     // green with reduced opacity
+                if (v <= t2) return 'rgba(163, 230, 53, 0.6)';     // yellow-green with reduced opacity
+                if (v <= t3) return 'rgba(234, 179, 8, 0.6)';     // yellow with reduced opacity
+                if (v <= t4) return 'rgba(249, 115, 22, 0.6)';     // orange with reduced opacity
+                return 'rgba(239, 68, 68, 0.6)';                  // red with reduced opacity
+            }
+
+            const ctx = document.getElementById('heatmapChart').getContext('2d');
+            if (heatmapChart) heatmapChart.destroy();
+            heatmapChart = new Chart(ctx, {
+                type: 'matrix',
+                data: {
+                    datasets: [{
+                        label: 'People Count',
+                        data,
+                        backgroundColor: (c) => bucketColor(c.raw.v),
+                        borderWidth: 0,
+                        borderColor: 'transparent',
+                        borderRadius: 4,
+                        width: ({chart}) => {
+                            const chartArea = chart.chartArea || { width: 800 };
+                            const slotWidth = chartArea.width / 24;
+                            // Subtract a fixed pixel value to create a uniform gap.
+                            return slotWidth - 3; // Creates a ~3px gap.
+                        },
+                        height: ({chart}) => {
+                            const chartArea = chart.chartArea || { height: 150 };
+                            const slotHeight = chartArea.height / 7;
+                             // Subtract a fixed pixel value to create a uniform gap.
+                            return slotHeight - 3; // Creates a ~3px gap.
+                        }
+                    }]
+                },
+                options: {
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                title: (items) => {
+                                    const h = items[0].raw.x;
+                                    const next = (h + 1) % 24;
+                                    return `${String(h).padStart(2,'0')}:00 - ${String(next).padStart(2,'0')}:00`;
+                                },
+                                label: (item) => `${item.raw.y}: ${formatNumber(item.raw.v)}`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            min: -0.5,
+                            max: 23.5,
+                            offset: true,
+                            ticks: {
+                                stepSize: 1,
+                                color: 'rgba(255,255,255,0.7)',
+                                font: { size: 10 },
+                                callback: (v) => {
+                                    const show = [0,6,12,18,23];
+                                    return show.includes(v) ? String(v).padStart(2,'0') + ':00' : '';
+                                }
+                            },
+                            grid: { display: false },
+                            border: { display: false }
+                        },
+                        y: {
+                            type: 'category',
+                            labels: labelsY,
+                            offset: true,
+                            ticks: { 
+                                color: 'rgba(255,255,255,0.7)',
+                                font: { size: 10 }
+                            },
+                            grid: { display: false },
+                            border: { display: false }
+                        }
+                    },
+                    layout: {
+                        padding: {
+                            top: 15,
+                            bottom: 15,
+                            left: 60,
+                            right: 60
+                        }
+                    },
+                    maintainAspectRatio: false,
+                    responsive: true
+                }
+            });
+        }
+
+        function initializeDailyShare() {
+            const container = document.getElementById('dailyShareContainer');
+            if (currentDay !== 'week') {
+                container.style.display = 'none';
+                if (dailyShareChart) { dailyShareChart.destroy(); dailyShareChart = null; }
+                return;
+            }
+            container.style.display = 'block';
+            const days = ['04_08_2025','05_08_2025','06_08_2025','07_08_2025','08_08_2025','09_08_2025','10_08_2025'];
+            const labels = ['Sun 04/08','Mon 05/08','Tue 06/08','Wed 07/08','Thu 08/08','Fri 09/08','Sat 10/08'];
+            const values = days.map(d => (weeklyData[d]?.totalPeople) || 0);
+            const total = values.reduce((a,b)=>a+b,0) || 1;
+            const ctx = document.getElementById('dailyShareChart').getContext('2d');
+            if (dailyShareChart) dailyShareChart.destroy();
+            dailyShareChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: labels.map((_, i) => getColorGradient(i, labels.length) + 'DD'),
+                        borderColor: 'rgba(0, 0, 0, 0.1)',
+                        borderWidth: 1,
+                        cutout: '45%',
+                        radius: '70%'
+                    }]
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: 'white', boxWidth: 12, padding: 12 } },
+                        tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${formatNumber(ctx.parsed)} (${Math.round(ctx.parsed/total*100)}%)` } }
+                    },
+                    layout: { padding: { top: 0, bottom: 0 } }
+                }
+            });
+        }
+
+        function renderPeaksTroughs() {
+            const peaksList = document.getElementById('peaksList');
+            const troughsList = document.getElementById('troughsList');
+            if (!peaksList || !troughsList) return;
+            const hourly = getHourlyForCurrent();
+            const items = hourly.map((v, h) => ({ h, v, label: `${String(h).padStart(2,'0')}:00 - ${String((h+1)%24).padStart(2,'0')}:00` }));
+            const sorted = [...items].sort((a,b)=>b.v-a.v);
+            const top = sorted.slice(0,3);
+            const bottom = [...items].filter(i => i.v > 0).sort((a,b)=>a.v-b.v).slice(0,3);
+            peaksList.innerHTML = top.map(i => `<li><span class="insight-time">${i.label}</span><span class="insight-value">${formatNumber(i.v)}</span></li>`).join('');
+            troughsList.innerHTML = bottom.map(i => `<li><span class="insight-time">${i.label}</span><span class="insight-value">${formatNumber(i.v)}</span></li>`).join('');
+        }
+
+        function renderSeasonality() {
+            const cont = document.getElementById('seasonalityTiles');
+            if (!cont) return;
+            const hourly = getHourlyForCurrent();
+            const total = hourly.reduce((a,b)=>a+b,0) || 1;
+            const sumRange = (hours) => hours.reduce((s,h)=>s + (hourly[h]||0), 0);
+            const morning = sumRange([8,9,10,11]);
+            const lunch = sumRange([12,13,14]);
+            const evening = sumRange([17,18,19]);
+            const tile = (title, value) => `
+                <div class="time-slot">
+                    <div style="font-weight:600;margin-bottom:0.25rem">${title}</div>
+                    <div style="font-size:1.2rem">${formatNumber(value)}</div>
+                    <div style="opacity:0.75">${Math.round(value/total*100)}% of total</div>
+                </div>`;
+            cont.innerHTML = tile('Morning (08–11)', morning) + tile('Lunch (12–14)', lunch) + tile('Evening (17–19)', evening);
+        }
+
+
+        function processDataForChart() {
+            if (currentDay === 'week') {
+                // Weekly aggregated view
+                const weeklyHourlyData = new Array(24).fill(0).map((_, i) => ({
+                    hour: i,
+                    hour_range: `${String(i).padStart(2, '0')}:00 - ${String(i+1).padStart(2, '0')}:00`,
+                    hourly_count: 0,
+                    cumulative_hourly_count: 0
+                }));
+
+                // Sum across all days
+                Object.values(weeklyData).forEach(dayData => {
+                    if (dayData && dayData.hourlyData) {
+                        dayData.hourlyData.forEach((item, index) => {
+                            weeklyHourlyData[index].hourly_count += item.hourly_count;
+                        });
+                    }
+                });
+
+                // Calculate cumulative for week
+                let cumulative = 0;
+                weeklyHourlyData.forEach(item => {
+                    cumulative += item.hourly_count;
+                    item.cumulative_hourly_count = cumulative;
+                });
+
+                csvData = weeklyHourlyData;
+            } else {
+                // Single day view
+                csvData = weeklyData[currentDay] ? weeklyData[currentDay].hourlyData : [];
+            }
+
+            if (currentView === 'hourly') {
+                return csvData.map(item => ({
+                    count: item.hourly_count,
+                    label: item.hour_range,
+                    cumulative: item.cumulative_hourly_count
+                }));
+            } else if (currentView === 'detailed') {
+                // For detailed view, use actual 30-minute data from CSV
+                if (currentDay === 'week') {
+                    // For week view, aggregate all days' 30-minute data
+                    const weeklyThirtyMinData = new Array(48).fill(0).map((_, i) => {
+                        const hour = Math.floor(i / 2);
+                        const isSecondHalf = i % 2 === 1;
+                        const startMinute = isSecondHalf ? 30 : 0;
+                        const endMinute = isSecondHalf ? 0 : 30;
+                        const endHour = isSecondHalf ? (hour + 1) % 24 : hour;
+                        
+                        return {
+                            count: 0,
+                            label: `${String(hour).padStart(2, '0')}:${String(startMinute).padStart(2, '0')} - ${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}`,
+                            cumulative: 0
+                        };
+                    });
+                    
+                    // Sum across all days
+                    Object.keys(weeklyData).forEach(day => {
+                        const dayThirtyMinData = extractThirtyMinuteData(day);
+                        dayThirtyMinData.forEach((item, index) => {
+                            weeklyThirtyMinData[index].count += item.count;
+                        });
+                    });
+                    
+                    // Calculate cumulative
+                    let cumulative = 0;
+                    weeklyThirtyMinData.forEach(item => {
+                        cumulative += item.count;
+                        item.cumulative = cumulative;
+                    });
+                    
+                    return weeklyThirtyMinData;
+                } else {
+                    // Single day detailed view
+                    const dayThirtyMinData = extractThirtyMinuteData(currentDay);
+                    let cumulative = 0;
+                    return dayThirtyMinData.map(item => {
+                        cumulative += item.count;
+                        return {
+                            count: item.count,
+                            label: item.label,
+                            cumulative: cumulative
+                        };
+                    });
+                }
+            } else if (currentView === 'daily' && currentDay === 'week') {
+                // Daily totals view for week
+                const dailyTotals = [];
+                const days = ['04_08_2025', '05_08_2025', '06_08_2025', '07_08_2025', '08_08_2025', '09_08_2025', '10_08_2025'];
+                const dayLabels = ['Sun 04/08', 'Mon 05/08', 'Tue 06/08', 'Wed 07/08', 'Thu 08/08', 'Fri 09/08', 'Sat 10/08'];
+
+                let cumulativeDaily = 0;
+                days.forEach((day, index) => {
+                    const dayData = weeklyData[day];
+                    const dayTotal = dayData ? dayData.totalPeople : 0;
+                    cumulativeDaily += dayTotal;
+
+                    dailyTotals.push({
+                        count: dayTotal,
+                        label: dayLabels[index],
+                        cumulative: cumulativeDaily
+                    });
+                });
+
+                return dailyTotals;
+            }
+        }
+
+        function initializeCharts() {
+            const chartData = processDataForChart();
+
+            // Dynamic Y-axis scaling based on data
+            const maxCount = Math.max(...chartData.map(d => d.count));
+            let yMax;
+
+            if (currentDay === 'week') {
+                if (currentView === 'daily') {
+                    // Daily totals view (typically 500-4000 per day)
+                    if (maxCount <= 1000) {
+                        yMax = Math.ceil(maxCount * 1.2 / 200) * 200;
+                    } else if (maxCount <= 5000) {
+                        yMax = Math.ceil(maxCount * 1.2 / 500) * 500;
+                    } else {
+                        yMax = Math.ceil(maxCount * 1.2 / 1000) * 1000;
+                    }
+                } else if (currentView === 'detailed') {
+                    // Detailed view for week - reduce scale for 30-min segments (peak ~1100)
+                    if (maxCount <= 500) {
+                        yMax = Math.ceil(maxCount * 1.4 / 100) * 100;
+                    } else if (maxCount <= 1500) {
+                        yMax = Math.ceil(maxCount * 1.3 / 200) * 200;
+                    } else {
+                        yMax = Math.ceil(maxCount * 1.2 / 250) * 250;
+                    }
+                } else {
+                    // Hourly view for week (peak ~2200)
+                    if (maxCount <= 1000) {
+                        yMax = Math.ceil(maxCount * 1.2 / 200) * 200;
+                    } else if (maxCount <= 2500) {
+                        yMax = Math.ceil(maxCount * 1.2 / 250) * 250;
+                    } else {
+                        yMax = Math.ceil(maxCount * 1.2 / 500) * 500;
+                    }
+                }
+            } else {
+                // Individual day views
+                if (currentView === 'detailed') {
+                    // 30-minute segments for individual days
+                    if (maxCount <= 25) {
+                        yMax = Math.ceil(maxCount * 1.5 / 10) * 10;
+                    } else if (maxCount <= 100) {
+                        yMax = Math.ceil(maxCount * 1.4 / 25) * 25;
+                    } else {
+                        yMax = Math.ceil(maxCount * 1.3 / 50) * 50;
+                    }
+                } else {
+                    // Hourly view for individual days (typically 0-400)
+                    if (maxCount <= 50) {
+                        yMax = Math.ceil(maxCount * 1.3 / 20) * 20;
+                    } else if (maxCount <= 200) {
+                        yMax = Math.ceil(maxCount * 1.3 / 50) * 50;
+                    } else if (maxCount <= 500) {
+                        yMax = Math.ceil(maxCount * 1.2 / 100) * 100;
+                    } else {
+                        yMax = Math.ceil(maxCount * 1.2 / 200) * 200;
+                    }
+                }
+            }
+
+            // Ensure minimum scale
+            if (yMax < 50) yMax = 50;
+
+            console.log(`Max count: ${maxCount}, Y-axis max: ${yMax}, Current view: ${currentDay}`);
+            
+            // Traffic Chart
+            const ctx1 = document.getElementById('trafficChart').getContext('2d');
+            
+            // Calculate dynamic thresholds based on data
+            const counts = chartData.map(d => d.count).filter(c => c > 0);
+            const dataMaxCount = Math.max(...counts);
+            const avgCount = counts.reduce((a, b) => a + b, 0) / counts.length;
+            
+            // Define thresholds as percentages of max count
+            const lowThreshold = dataMaxCount * 0.25;
+            const mediumThreshold = dataMaxCount * 0.5;
+            const highThreshold = dataMaxCount * 0.75;
+            
+            // Create color function based on count thresholds
+            const getBarColor = (count) => {
+                if (count === 0) return '#22c55e';      // Green for zero
+                if (count <= lowThreshold) return '#22c55e';    // Green
+                if (count <= mediumThreshold) return '#3b82f6'; // Blue
+                if (count <= highThreshold) return '#f97316';   // Orange
+                return '#ef4444';                               // Red
+            };
+            
+            const barBackground = chartData.map(d => getBarColor(d.count));
+
+            const barDataset = {
+                label: 'People Count',
+                data: chartData.map(d => d.count),
+                backgroundColor: barBackground,
+                borderColor: 'transparent',
+                borderWidth: 0,
+                borderRadius: 8,
+                borderSkipped: false,
+            };
+
+            const overlay = createOverlayDataset(chartData.length);
+
+            const datasets = [barDataset];
+            if (overlay) datasets.push(overlay);
+
+            trafficChart = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: chartData.map(d => d.label),
+                    datasets: datasets
+                },
+                plugins: [ChartDataLabels],
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        datalabels: {
+                            anchor: 'end',
+                            align: 'top',
+                            color: 'white',
+                            font: {
+                                weight: 'bold'
+                            },
+                            formatter: function(value) {
+                                return formatNumber(value);
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: 'white',
+                                maxRotation: 45
+                            }
+                        },
+                        y: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: 'white',
+                                stepSize: calculateStepSize(yMax),
+                                callback: function(value) {
+                                    return formatNumber(value);
+                            }
+                            },
+                            max: yMax
+                        }
+                    },
+                    animation: {
+                        duration: 2000,
+                        easing: 'easeInOutQuart'
+                    }
+                }
+            });
+
+            // Cumulative Chart
+            const ctx2 = document.getElementById('cumulativeChart').getContext('2d');
+            // Use cumulative data from the chartData
+            const cumulativeData = chartData.map(d => d.cumulative || 0);
+            const maxCumulative = Math.max(...cumulativeData);
+
+            // Dynamic scaling for cumulative chart (weekly max ~16,989)
+            let cumulativeYMax;
+            if (currentDay === 'week') {
+                if (maxCumulative <= 5000) {
+                    cumulativeYMax = Math.ceil(maxCumulative * 1.1 / 1000) * 1000; // Round up to nearest 1000
+                } else if (maxCumulative <= 20000) {
+                    cumulativeYMax = Math.ceil(maxCumulative * 1.1 / 2000) * 2000; // Round up to nearest 2000
+                } else {
+                    cumulativeYMax = Math.ceil(maxCumulative * 1.1 / 5000) * 5000; // Round up to nearest 5000
+                }
+            } else {
+                // Daily cumulative (typically 500-4000)
+                if (maxCumulative <= 500) {
+                    cumulativeYMax = Math.ceil(maxCumulative * 1.2 / 100) * 100;
+                } else if (maxCumulative <= 2000) {
+                    cumulativeYMax = Math.ceil(maxCumulative * 1.1 / 250) * 250;
+                } else if (maxCumulative <= 5000) {
+                    cumulativeYMax = Math.ceil(maxCumulative * 1.1 / 500) * 500;
+                } else {
+                    cumulativeYMax = Math.ceil(maxCumulative * 1.1 / 1000) * 1000;
+                }
+            }
+
+            if (cumulativeYMax < 200) cumulativeYMax = 200;
+
+            cumulativeChart = new Chart(ctx2, {
+                type: 'line',
+                data: {
+                    labels: chartData.map(d => d.label),
+                    datasets: [{
+                        label: 'Cumulative Count',
+                        data: cumulativeData,
+                        borderColor: '#4ecdc4',
+                        backgroundColor: 'rgba(78, 205, 196, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#4ecdc4',
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 2,
+                        pointRadius: 6,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: 'white'
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: 'white',
+                                maxRotation: 45
+                            }
+                        },
+                        y: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: 'white',
+                                stepSize: calculateStepSize(cumulativeYMax),
+                                callback: function(value) {
+                                    return formatNumber(value);
+                            }
+                            },
+                            max: cumulativeYMax
+                        }
+                    },
+                    animation: {
+                        duration: 2000,
+                        easing: 'easeInOutQuart'
+                    }
+                }
+            });
+
+            // Other analytics
+            initializeHeatmap();
+            initializeDailyShare();
+            renderPeaksTroughs();
+            renderSeasonality();
+        }
+
+        function updateStats() {
+            const chartData = processDataForChart();
+            let totalPeople = 0;
+            let totalVideos = 0;
+
+            let totalHours = 0;
+            if (currentDay === 'week') {
+                // Week totals
+                Object.values(weeklyData).forEach(dayData => {
+                    if (dayData) {
+                        totalPeople += dayData.totalPeople;
+                        totalVideos += dayData.uniqueVideoCount;
+                        totalHours += (dayData.totalHours || 0);
+                    }
+                });
+            } else {
+                // Single day
+                const dayData = weeklyData[currentDay];
+                if (dayData) {
+                    totalPeople = dayData.totalPeople;
+                    totalVideos = dayData.uniqueVideoCount;
+                    totalHours = dayData.totalHours || 0;
+                }
+            }
+
+            // Peak should always be based on hourly data (not half-hour)
+            let peakHourLabel = '--:--';
+            if (csvData && csvData.length > 0) {
+                const peakRow = csvData.reduce((prev, curr) => {
+                    if (!prev) return curr;
+                    return (curr.hourly_count > prev.hourly_count) ? curr : prev;
+                }, null);
+                peakHourLabel = peakRow ? peakRow.hour_range : '--:--';
+            }
+
+            const divisor = currentDay === 'week' ? 168 : 24; // 7 days * 24 hours or 24 hours
+            const avgPerHour = Math.round(totalPeople / divisor);
+
+            document.getElementById('totalPeople').textContent = formatNumber(totalPeople);
+            document.getElementById('peakHour').textContent = peakHourLabel;
+            document.getElementById('avgPerHour').textContent = formatNumber(avgPerHour);
+            document.getElementById('activeVideos').textContent = totalVideos;
+            document.getElementById('totalHours').textContent = `${(Math.round(totalHours * 10) / 10)} hrs`;
+
+            // Update date range in header
+            const dateRange = document.getElementById('dateRange');
+            if (currentDay === 'week') {
+                dateRange.textContent = 'Weekly Lift Traffic Overview · 04.08.2025 - 10.08.2025';
+            } else {
+                const dayName = dayNames[currentDay];
+                const date = dayDates[currentDay];
+                dateRange.textContent = `${dayName} Lift Traffic Overview · ${date}`;
+            }
+        }
+
+        function showHourly() {
+            currentView = 'hourly';
+            updateActiveButton(0);
+            destroyCharts();
+            initializeCharts();
+            updateStats();
+        }
+
+        function showDetailed() {
+            currentView = 'detailed';
+            updateActiveButton(1);
+            destroyCharts();
+            initializeCharts();
+            updateStats();
+        }
+
+        function updateActiveButton(activeIndex) {
+            const buttons = [
+                document.getElementById('hourlyBtn'),
+                document.getElementById('detailedBtn'),
+                document.getElementById('dailyTotalsBtn'),
+                document.getElementById('exportBtn')
+            ].filter(Boolean);
+            buttons.forEach((btn, index) => {
+                if (index === activeIndex) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+
+        function destroyCharts() {
+            if (trafficChart) {
+                trafficChart.destroy();
+            }
+            if (cumulativeChart) {
+                cumulativeChart.destroy();
+            }
+            if (heatmapChart) {
+                heatmapChart.destroy();
+                heatmapChart = null;
+            }
+            if (dailyShareChart) {
+                dailyShareChart.destroy();
+                dailyShareChart = null;
+            }
+        }
+
+
+        function exportData() {
+            // Download the original lift.csv file
+            const link = document.createElement("a");
+            link.setAttribute("href", "lift.csv");
+            link.setAttribute("download", "lift.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function formatNumber(value) {
+            // Format numbers above 1000 as 1k, 2k, etc.
+            if (value >= 1000) {
+                const thousands = value / 1000;
+                if (thousands % 1 === 0) {
+                    return thousands + 'k';
+                } else {
+                    return (Math.round(thousands * 10) / 10) + 'k';
+                }
+            }
+            return value.toString();
+        }
+
+        function calculateStepSize(maxValue) {
+            // Calculate appropriate step size for grid lines (aim for 8-12 grid lines)
+            if (maxValue <= 20) return 5;
+            if (maxValue <= 50) return 10;
+            if (maxValue <= 100) return 20;
+            if (maxValue <= 250) return 25;
+            if (maxValue <= 500) return 50;
+            if (maxValue <= 1000) return 100;
+            if (maxValue <= 2500) return 250;
+            if (maxValue <= 5000) return 500;
+            if (maxValue <= 10000) return 1000;
+            if (maxValue <= 20000) return 2000;
+            return Math.ceil(maxValue / 10 / 1000) * 1000;
+        }
+
+        function selectDay(day) {
+            currentDay = day;
+
+            // Update active day button (avoid relying on event)
+            document.querySelectorAll('.day-btn').forEach(btn => {
+                if (btn.getAttribute('onclick') === `selectDay('${day}')`) {
+                    btn.classList.add('active');
+                } else if (day === 'week' && btn.textContent.includes('Week')) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+
+            // Show/hide daily totals button based on selection
+            const dailyTotalsBtn = document.getElementById('dailyTotalsBtn');
+            if (day === 'week') {
+                dailyTotalsBtn.style.display = 'inline-block';
+            } else {
+                dailyTotalsBtn.style.display = 'none';
+                // Reset to hourly view if we were in daily totals mode
+                if (currentView === 'daily') {
+                    currentView = 'hourly';
+                    updateActiveButton(0);
+                }
+            }
+
+            // Refresh charts and stats
+            destroyCharts();
+            initializeCharts();
+            updateStats();
+        }
+
+        function showDailyTotals() {
+            currentView = 'daily';
+            updateActiveButton(2);
+            destroyCharts();
+            initializeCharts();
+            updateStats();
+        }
+
+        function showExportModal() {
+            document.getElementById('exportModal').style.display = 'block';
+        }
+
+        function closeExportModal() {
+            document.getElementById('exportModal').style.display = 'none';
+        }
+
+        function exportDay(day) {
+            if (day === 'week') {
+                // Export combined weekly data as hourly summary
+                exportWeeklyHourlyData();
+            } else {
+                // Export specific day data as hourly count CSV
+                exportSingleDayHourly(day);
+            }
+            closeExportModal();
+        }
+
+        function exportWeeklyHourlyData() {
+            // Download the existing weekly hourly summary file
+            const link = document.createElement("a");
+            link.setAttribute("href", "weekly_hourly_summary.csv");
+            link.setAttribute("download", "weekly_summary.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function exportSingleDayHourly(day) {
+            // Download the existing hourly CSV file for the selected day
+            const link = document.createElement("a");
+            link.setAttribute("href", `${day}_hourly.csv`);
+            // Convert day format from 04_08_2025 to 04.08.2025
+            const formattedDay = day.replace(/_/g, '.');
+            link.setAttribute("download", `${formattedDay}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function updateActiveButton(activeIndex) {
+            const buttons = document.querySelectorAll('.control-btn:not(#dailyTotalsBtn[style*="display: none"])');
+            buttons.forEach((btn, index) => {
+                if (index === activeIndex) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+
+        // Close modal when clicking outside
+        window.addEventListener('click', function(event) {
+            const modal = document.getElementById('exportModal');
+            if (event.target === modal) {
+                closeExportModal();
+            }
+        });
+
+        // Initialize the dashboard
+        window.addEventListener('load', loadData);
+    </script>
+</body>
+</html>
